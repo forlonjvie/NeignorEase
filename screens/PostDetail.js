@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Make sure to import AsyncStorage
+import { View, Text, ScrollView, TextInput, Button, StyleSheet, Alert, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import axios from 'axios';
 
 const PostDetail = ({ route }) => {
@@ -10,7 +10,6 @@ const PostDetail = ({ route }) => {
   const [newComment, setNewComment] = useState('');
   const [user, setUser] = useState(null); // To store user data
 
-  // Fetch the user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
       const userData = await AsyncStorage.getItem('user');
@@ -21,7 +20,6 @@ const PostDetail = ({ route }) => {
     fetchUserData();
   }, []);
 
-  // Fetch post details and comments after postId is set
   useEffect(() => {
     if (postId <= 0) {
       Alert.alert('Invalid post ID');
@@ -34,7 +32,7 @@ const PostDetail = ({ route }) => {
   const fetchPostDetails = async () => {
     try {
       console.log(`Fetching post details for postId: ${postId}`);
-      const response = await fetch(`http://172.69.69.115/4Capstone/app/db_connection/getPostDetail.php?postId=${postId}`);
+      const response = await fetch(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getPostDetail.php?postId=${postId}`);
       const jsonResponse = await response.json();
       console.log('Post details response:', jsonResponse);
       if (jsonResponse.Status) {
@@ -51,7 +49,7 @@ const PostDetail = ({ route }) => {
   const fetchComments = async () => {
     try {
       console.log(`Fetching comments for postId: ${postId}`);
-      const response = await fetch(`http://172.69.69.115/4Capstone/app/db_connection/getComments.php?postId=${postId}`);
+      const response = await fetch(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getComments.php?postId=${postId}`);
       const jsonResponse = await response.json();
       console.log('Comments response:', jsonResponse);
       if (jsonResponse.Status) {
@@ -74,7 +72,7 @@ const PostDetail = ({ route }) => {
 
     try {
       console.log(`Adding new comment: ${newComment}`);
-      const response = await fetch('http://172.69.69.115/4Capstone/app/db_connection/addComment.php', {
+      const response = await fetch('https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/addComment.php', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -104,6 +102,10 @@ const PostDetail = ({ route }) => {
       {post && (
         <View style={styles.postContainer}>
           <Text style={styles.postTitle}>{post.title}</Text>
+          <Image
+            source={{ uri: `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${post.image_path}` }} // Ensure image_url is available in post data
+            style={styles.image}
+          />
           <Text style={styles.postContent}>{post.content}</Text>
           <Text style={styles.postMeta}>By {post.HO_username} on {new Date(post.created_at).toLocaleString()}</Text>
         </View>
@@ -113,7 +115,7 @@ const PostDetail = ({ route }) => {
         {comments.map((comment, index) => (
           <View key={index} style={styles.comment}>
             <Text style={styles.commentText}>{comment.content}</Text>
-            <Text style={styles.commentMeta}>By {comment.HO_username} on Posted on {new Date(comment.created_at).toLocaleString()}</Text>
+            <Text style={styles.commentMeta}>By {comment.HO_username} on {new Date(comment.created_at).toLocaleString()}</Text>
           </View>
         ))}
       </ScrollView>
@@ -139,13 +141,23 @@ const styles = StyleSheet.create({
   },
   postContainer: {
     marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    elevation: 2,
   },
   postTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 12,
   },
   postContent: {
-    marginTop: 8,
     fontSize: 16,
     color: '#555',
   },
@@ -192,6 +204,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     padding: 8,
     borderRadius: 5,
+    backgroundColor: '#fff',
   },
 });
 

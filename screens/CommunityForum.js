@@ -1,59 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Button, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import Icon from 'react-native-vector-icons/Ionicons';  // Import Icon from react-native-vector-icons
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const ForumPost = ({ title, content, writer, author, createdAt, onPress }) => {
-  return (
-    <TouchableOpacity onPress={onPress}>
-      <View style={styles.postContainer}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.description}>{content}</Text>
-        <Text style={styles.meta}>By {writer} on {new Date(createdAt).toLocaleString()}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
+const ForumPost = ({ title, content, writer, createdAt, onPress }) => (
+  <TouchableOpacity onPress={onPress}>
+    <View style={styles.postCard}>
+      <Text style={styles.postTitle}>{title || 'Untitled Post'}</Text>
+      <Text style={styles.postContent} numberOfLines={2}>{content || 'No content available.'}</Text>
+      <Text style={styles.postMeta}>By {writer} on {new Date(createdAt).toLocaleString()}</Text>
+    </View>
+  </TouchableOpacity>
+);
 
 const CommunityForum = () => {
   const [posts, setPosts] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [newPost, setNewPost] = useState({
-    title: '',
-    description: '',
-  });
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visiblePosts, setVisiblePosts] = useState(10);
   const [user, setUser] = useState(null);
-  const [showNewPostBanner, setShowNewPostBanner] = useState(false); // New state for banner visibility
-  const [bannerAnimation] = useState(new Animated.Value(0)); // Animation for banner
+  const [showNewPostBanner, setShowNewPostBanner] = useState(false);
+  const [bannerAnimation] = useState(new Animated.Value(0));
 
   const navigation = useNavigation();
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userData = await AsyncStorage.getItem('user');
-        if (userData) {
-          setUser(JSON.parse(userData));
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
     fetchUserData();
-  }, []);
-
-  useEffect(() => {
     fetchPosts();
-    const intervalId = setInterval(fetchPosts, 10000); // Poll every 10 seconds
-
+    const intervalId = setInterval(fetchPosts, 10000);
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    const filtered = posts.filter(post => {
+      const title = post.title_posts?.toLowerCase() || '';
+      const content = post.content?.toLowerCase() || '';
+      return title.includes(searchQuery.toLowerCase()) || content.includes(searchQuery.toLowerCase());
+    });
+    setFilteredPosts(filtered);
+  }, [searchQuery, posts]);
+
+  const fetchUserData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
   const fetchPosts = async () => {
-    const postsAPIURL = "http://172.69.69.115/4Capstone/app/db_connection/getPost.php";
+    const postsAPIURL = "https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getPost.php";
 
     try {
       const response = await fetch(postsAPIURL, {
@@ -68,22 +68,8 @@ const CommunityForum = () => {
         const newPosts = jsonResponse.Data;
         setPosts(newPosts);
 
-        // Check if there are new posts and show banner
         if (newPosts.some(post => new Date(post.created_at).getTime() > Date.now() - 10000)) {
-          setShowNewPostBanner(true);
-          Animated.timing(bannerAnimation, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }).start();
-          setTimeout(() => {
-            Animated.timing(bannerAnimation, {
-              toValue: 0,
-              duration: 300,
-              useNativeDriver: true,
-            }).start();
-            setShowNewPostBanner(false);
-          }, 5000); // Banner shows for 5 seconds
+          showNewPostBannerAnimation();
         }
       } else {
         Alert.alert(jsonResponse.Message);
@@ -93,229 +79,164 @@ const CommunityForum = () => {
     }
   };
 
-  const handleNewPost = async () => {
-    if (!user) {
-      Alert.alert('User not logged in');
-      return;
-    }
+  const showNewPostBannerAnimation = () => {
+    setShowNewPostBanner(true);
+    Animated.timing(bannerAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    setTimeout(() => {
+      Animated.timing(bannerAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setShowNewPostBanner(false));
+    }, 5000);
+  };
 
-    const postData = {
-      author: user.username,
-      writer: user.username,
-      title: newPost.title,
-      description: newPost.description,
-    };
-
-    try {
-      const response = await fetch('http://172.69.69.115/4Capstone/app/db_connection/addPost.php', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(postData),
-      });
-
-      const jsonResponse = await response.json();
-      if (jsonResponse.Status) {
-        setNewPost({ title: '', description: '' });
-        setModalVisible(false);
-        fetchPosts(); // Refetch posts to update list
-      } else {
-        Alert.alert(jsonResponse.Message);
-      }
-    } catch (error) {
-      console.error("Error saving new post: ", error);
-    }
+  const togglePostsVisibility = () => {
+    setVisiblePosts(prevVisible => prevVisible === 10 ? filteredPosts.length : 10);
   };
 
   const bannerTranslateY = bannerAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [-50, 0] // Banner moves from above to its position
+    outputRange: [-50, 0]
   });
 
   return (
     <View style={styles.container}>
-      {/* New Post Banner */}
       {showNewPostBanner && (
         <Animated.View style={[styles.banner, { transform: [{ translateY: bannerTranslateY }] }]}>
           <Text style={styles.bannerText}>New posts available! 🎉</Text>
         </Animated.View>
       )}
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Community Forum</Text>
-      </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search posts..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
 
       <ScrollView style={styles.postsContainer}>
-        {posts.map((post, index) => (
+        {filteredPosts.slice(0, visiblePosts).map((post, index) => (
           <ForumPost 
-            key={index} 
-            title={post.title} 
+            key={`post_${post.post_id}`} 
+            title={post.title_posts} 
             content={post.content} 
             writer={post.HO_username} 
-            author={post.username} 
             createdAt={post.created_at}
             onPress={() => navigation.navigate('PostDetail', { postId: post.post_id })}
           />
         ))}
       </ScrollView>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(!modalVisible)}
-      >
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>New Post</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Title"
-            value={newPost.title}
-            onChangeText={(text) => setNewPost({ ...newPost, title: text })}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Description"
-            value={newPost.description}
-            onChangeText={(text) => setNewPost({ ...newPost, description: text })}
-          />
-          <Button title="Submit" onPress={handleNewPost} />
-          <Button title="Cancel" onPress={() => setModalVisible(false)} />
-        </View>
-      </Modal>
+      {filteredPosts.length > 10 && (
+        <TouchableOpacity style={styles.toggleButton} onPress={togglePostsVisibility}>
+          <Text style={styles.toggleButtonText}>
+            {visiblePosts === 10 ? 'Show More' : 'Show Less'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={styles.composeButton}
         onPress={() => navigation.navigate('compose_blog')}
       >
         <Icon name="create-outline" size={24} color="#fff" />
-        <Text style={styles.composeButtonText}>Compose</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    backgroundColor: '#f0f4f7',
+    paddingTop: 10,
   },
   banner: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#007bff',
-    padding: 10,
+    backgroundColor: '#4caf50',
+    padding: 12,
     alignItems: 'center',
     zIndex: 1000,
   },
   bannerText: {
     color: '#fff',
+    fontWeight: '600',
     fontSize: 16,
-    fontWeight: 'bold',
   },
-  postsContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  postContainer: {
+  searchInput: {
+    margin: 16,
+    padding: 12,
     backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-    borderRadius: 8,
+    borderRadius: 25,
+    fontSize: 16,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  description: {
-    color: '#555',
-    marginBottom: 8,
-  },
-  meta: {
-    fontSize: 12,
-    color: '#777',
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
   },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+  postsContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
-  input: {
-    width: 250,
-    height: 40,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    marginBottom: 16,
-    padding: 8,
-    borderRadius: 5,
+  postCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  postContent: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 8,
+  },
+  postMeta: {
+    fontSize: 12,
+    color: '#888',
+  },
+  toggleButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    margin: 16,
+    backgroundColor: '#007bff',
+    borderRadius: 25,
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   composeButton: {
     position: 'absolute',
     bottom: 30,
     right: 30,
     backgroundColor: '#007bff',
-    padding: 12,
+    padding: 15,
     borderRadius: 50,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     elevation: 5,
-  },
-  composeButtonText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 

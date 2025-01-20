@@ -28,14 +28,14 @@ const BlogForm = () => {
 
   const handlePickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
 
-    if (!result.cancelled) {
-      setImageUri(result.uri);
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
     }
   };
 
@@ -45,21 +45,32 @@ const BlogForm = () => {
       return;
     }
 
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('username', user.username);
+
+    if (imageUri) {
+      const fileName = imageUri.split('/').pop();
+      const fileType = imageUri.substring(imageUri.lastIndexOf('.') + 1);
+      formData.append('image', {
+        uri: imageUri,
+        type: `image/${fileType}`,
+        name: fileName,
+      });
+    }
+
     try {
-      const response = await fetch('http://172.69.69.115/4Capstone/app/db_connection/postblog.php', {
+      const response = await fetch('https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/postBlog.php', {
         method: 'POST',
+        body: formData,
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify({
-          title,
-          description,
-          username: user.username,
-        }),
       });
 
       const jsonResponse = await response.json();
+      console.log('Response from server:', jsonResponse);
       if (jsonResponse.Status) {
         Alert.alert('Success', 'Post submitted successfully!');
         setTitle('');
@@ -78,9 +89,7 @@ const BlogForm = () => {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.formContainer}>
-        <Text style={styles.headerTitle}>Create a New Blog Post</Text>
-
-        <Text style={styles.label}>Post Title</Text>
+        <Text style={styles.label}>Title</Text>
         <TextInput
           style={styles.input}
           placeholder="Enter post title"
@@ -92,7 +101,7 @@ const BlogForm = () => {
           <Image source={{ uri: imageUri }} style={styles.image} />
         )}
 
-        <Text style={styles.label}>Post Description</Text>
+        <Text style={styles.label}>Description</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Enter your post description..."
@@ -181,7 +190,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     width: 60,
     height: 60,
     borderRadius: 30,

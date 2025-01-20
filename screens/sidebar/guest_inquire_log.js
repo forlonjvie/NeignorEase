@@ -1,33 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 
 const GuestList = () => {
-  const [guests, setGuests] = useState([
-    {
-      id: '1',
-      name: 'Juan Dela Cruz',
-      address: '123 Main St, Manila',
-      date: '2024-06-25',
-      status: 'Accepted',
-      image: 'https://via.placeholder.com/100'
-    },
-    {
-      id: '2',
-      name: 'Maria Clara',
-      address: '456 Elm St, Cebu',
-      date: '2024-06-20',
-      status: 'Deny',
-      image: 'https://via.placeholder.com/100'
-    },
-    {
-      id: '3',
-      name: 'Jose Rizal',
-      address: '789 Pine St, Davao',
-      date: '2024-06-28',
-      status: 'Accepted',
-      image: 'https://via.placeholder.com/100'
-    }
-  ]);
+  const [guests, setGuests] = useState([]);
+
+  useEffect(() => {
+    // Fetch data from API endpoint
+    fetch('http://your-api-endpoint.com/visits?username=YOUR_USERNAME')
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          console.log(data.error);
+        } else {
+          // Update guests data with the response
+          const formattedGuests = data.map(item => ({
+            id: item.id,
+            name: `${item.Guest_fname} ${item.Guest_mname ? item.Guest_mname + ' ' : ''}${item.Guest_lname}`,
+            address: item.guest_add,
+            date: item.visit_date,
+            status: item.status,
+            image: item.Guest_photo || 'https://via.placeholder.com/100', // default image if none
+          }));
+          setGuests(formattedGuests);
+        }
+      })
+      .catch(error => console.error('Error fetching guests:', error));
+  }, []);
 
   const renderItem = ({ item }) => (
     <View style={styles.guestItem}>

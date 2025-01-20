@@ -1,99 +1,100 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Camera } from 'expo-camera';
 
-const data = [
-  {
-    id: 1,
-    name: 'Mang Kanor',
-    supportingText: 'pre magbayad ka na ng utang',
-    time: '2 min',
-  },
-  {
-    id: 2,
-    name: 'Manong Delivery Driver',
-    supportingText: 'sir parcel nyo nahulog sa kanal',
-    time: '3 min',
-  },
-  {
-    id: 3,
-    name: 'Vicky',
-    supportingText: 'Panagutan mo anak mo',
-    time: '9 min',
-  },
-  {
-    id: 4,
-    name: 'Vicky',
-    supportingText: 'nabuntis mo ako',
-    time: '15 min',
-  },
-  {
-    id: 5,
-    name: 'Janet',
-    supportingText: 'breake na tayo',
-    time: '20 min',
-  },
-];
+export default function CameraPage() {
+  const [hasPermission, setHasPermission] = useState(null); // Manage camera permissions
+  const [cameraType, setCameraType] = useState(Camera.Constants.Type.back); // Set default camera type
+  const cameraRef = useRef(null); // Reference to the camera
 
-const InboxScreen = () => {
+  // Request camera permissions when the component mounts
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
+  }, []);
+
+  // Function to switch camera type
+  const toggleCameraType = () => {
+    setCameraType((current) =>
+      current === Camera.Constants.Type.back
+        ? Camera.Constants.Type.front
+        : Camera.Constants.Type.back
+    );
+  };
+
+  // Function to take a picture
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
+      console.log(photo); // Log the photo URI
+    }
+  };
+
+  // Handle cases where permission is null or denied
+  if (hasPermission === null) {
+    return (
+      <View style={styles.container}>
+        <Text>Requesting camera permission...</Text>
+      </View>
+    );
+  }
+  if (hasPermission === false) {
+    return (
+      <View style={styles.container}>
+        <Text>No access to camera</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <FlatList
-        data={data}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <View style={styles.icon} />
-            <View style={styles.content}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.supportingText}>{item.supportingText}</Text>
-            </View>
-            <Text style={styles.time}>{item.time}</Text>
-          </View>
-        )}
-      />
+      <Camera
+        style={styles.camera}
+        type={cameraType}
+        ref={cameraRef} // Set reference to access camera methods
+      >
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.button} onPress={toggleCameraType}>
+            <Text style={styles.text}>Flip Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={takePicture}>
+            <Text style={styles.text}>Take Photo</Text>
+          </TouchableOpacity>
+        </View>
+      </Camera>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-  },
-  item: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 10,
-    marginBottom: 10,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
-  icon: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#ccc',
-    borderRadius: 8,
-    marginRight: 16,
-  },
-  content: {
+  camera: {
     flex: 1,
+    width: '100%',
   },
-  name: {
+  buttonContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    padding: 20,
+  },
+  button: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  text: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  supportingText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  time: {
-    fontSize: 14,
-    color: '#999',
+    color: '#000',
   },
 });
-
-export default InboxScreen;

@@ -6,12 +6,14 @@ if (!$CN) {
 }
 
 // Get the username from the query parameter
-$username = $_GET['username']; 
+$username = $_GET['username'];
 
-// Query to exclude records where status = 'CONFIRMED'
-$query = "SELECT `id`, `HO_name`, `HO_housenum`, `Guest_name`, `Guest_email`, `message`, `guest_contact`, `guest_add`, `status` , `relation`  , `visit_date`
-          FROM `visits` 
-          WHERE `HO_name` = ? AND `status` != 'CONFIRMED'";
+// Query to exclude records where status = 'CONFIRMED' and sort by visit_date in descending order
+$query = "SELECT `id`, `HO_name`, `Guest_lname`, `Guest_fname`, `Guest_mname`, `Guest_afname`, `Guest_photo`, 
+                 `Guest_email`, `guest_contact`, `guest_add`, `HO_housenum`, `visit_date`, `Guest_num`, `relation`, `status`
+          FROM `visits`
+          WHERE `HO_name` = ? AND `status` != 'CONFIRMED'
+          ORDER BY `visit_date` DESC";
 
 $stmt = $CN->prepare($query);
 $stmt->bind_param("s", $username);

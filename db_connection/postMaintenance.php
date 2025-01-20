@@ -1,10 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
-// Include your database connection file
+// Database connection
 $CN = mysqli_connect("localhost", "root", "", "admin_db");
 
-// Check the database connection
 if (!$CN) {
     echo json_encode([
         'Status' => false,
@@ -13,13 +12,11 @@ if (!$CN) {
     exit;
 }
 
-// Get the JSON input data
-$data = json_decode(file_get_contents('php://input'), true);
-
-// Validate title, description, and username
-$title = isset($data['title']) ? trim($data['title']) : '';
-$description = isset($data['description']) ? trim($data['description']) : '';
-$username = isset($data['username']) ? trim($data['username']) : '';
+// Directory for image uploads
+$upload_dir = 'upload_img/';
+$title = isset($_POST['title']) ? trim($_POST['title']) : '';
+$description = isset($_POST['description']) ? trim($_POST['description']) : '';
+$username = isset($_POST['username']) ? trim($_POST['username']) : '';
 
 if (empty($title) || empty($description) || empty($username)) {
     echo json_encode([
@@ -29,19 +26,33 @@ if (empty($title) || empty($description) || empty($username)) {
     exit;
 }
 
+// Handling the image upload
+$image_url = null;
+if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+    $image = $_FILES['image'];
+    $image_name = basename($image['name']);
+    $target_file = $upload_dir . $image_name;
+
+    if (move_uploaded_file($image['tmp_name'], $target_file)) {
+        $image_url = $target_file; // Save the image path
+    } else {
+        echo json_encode([
+            'Status' => false,
+            'Message' => 'Error uploading image.'
+        ]);
+        exit;
+    }
+}
+
 try {
-    // Prepare the SQL query to insert a new maintenance request
-    $query = "INSERT INTO maintenance_request (title, content, created_at, HO_username, status) VALUES (?, ?, NOW(), ?, 'pending')";
+    $query = "INSERT INTO maintenance_request (title, content, created_at, HO_username, status, image_url) VALUES (?, ?, NOW(), ?, 'pending', ?)";
     $stmt = mysqli_prepare($CN, $query);
 
     if ($stmt === false) {
         throw new Exception('Failed to prepare SQL statement: ' . mysqli_error($CN));
     }
 
-    // Bind parameters: title, description (instead of content), and username
-    mysqli_stmt_bind_param($stmt, 'sss', $title, $description, $username);
-
-    // Execute the query
+    mysqli_stmt_bind_param($stmt, 'ssss', $title, $description, $username, $image_url);
     if (mysqli_stmt_execute($stmt)) {
         echo json_encode([
             'Status' => true,
@@ -54,7 +65,6 @@ try {
         ]);
     }
 
-    // Close the statement
     mysqli_stmt_close($stmt);
 } catch (Exception $e) {
     echo json_encode([
@@ -63,5 +73,4 @@ try {
     ]);
 }
 
-// Close the database connection
 mysqli_close($CN);

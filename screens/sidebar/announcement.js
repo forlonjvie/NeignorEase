@@ -1,100 +1,211 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Modal, Alert, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ForumPost = ({ title, content, date_time, onPress }) => {
+// Individual Announcement Post Component
+const AnnouncementPost = ({ id, title, content, date_time, isOpened, onPress }) => {
   return (
     <TouchableOpacity onPress={onPress} style={styles.postContainer}>
       <View style={styles.postHeader}>
-        <MaterialIcons name="announcement" size={24} color="#ff6b6b" />
-        <Text style={styles.title}>{title}</Text>
+        <MaterialIcons
+          name="notifications"
+          size={24}
+          color={isOpened ? "#a0a0a0" : "#ff6b6b"}
+        />
+        <Text style={[
+          styles.title,
+          isOpened ? styles.opened : styles.unopened
+        ]}>
+          {title}
+        </Text>
       </View>
-      <Text style={styles.description}>{content.substring(0, 100)}...</Text>
+      <View style={styles.postContent}>
+        <Text style={styles.description}>
+          {content.substring(0, 100)}...
+        </Text>
+        <Text style={styles.dateTime}>
+          {date_time}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 };
 
+// Search Bar Component
+const SearchBar = ({ onSearch }) => {
+  return (
+    <View style={styles.searchContainer}>
+      <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search announcements..."
+        onChangeText={onSearch}
+        placeholderTextColor="#999"
+      />
+    </View>
+  );
+};
+
+// Announcement Module Component
 const Announcement = () => {
   const [posts, setPosts] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [displayedPosts, setDisplayedPosts] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [readPosts, setReadPosts] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
+  const ITEMS_PER_PAGE = 10;
 
-  const fetchAnnouncements = async () => {
-    const LoginAPIURL = "http://172.69.69.115/4Capstone/app/db_connection/getAnnouncement.php";
+  // Filter posts by search query
+  const filterPosts = (query) => {
+    const searchResults = posts.filter((post) => {
+      const titleMatch = post.title.toLowerCase().includes(query.toLowerCase());
+      const contentMatch = post.content.toLowerCase().includes(query.toLowerCase());
+      return titleMatch || contentMatch;
+    });
+    setFilteredPosts(searchResults);
+    updateDisplayedPosts(searchResults, false);
+  };
 
-    try {
-      const response = await fetch(LoginAPIURL, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-      const jsonResponse = await response.json();
-      if (jsonResponse.Status) {
-        setPosts(jsonResponse.Data);
-      } else {
-        Alert.alert(jsonResponse.Message);
-      }
-    } catch (error) {
-      Alert.alert("Error: " + error.message);
+  // Update displayed posts based on showAll flag
+  const updateDisplayedPosts = (postsToDisplay, showAllFlag) => {
+    if (showAllFlag) {
+      setDisplayedPosts(postsToDisplay);
+    } else {
+      setDisplayedPosts(postsToDisplay.slice(0, ITEMS_PER_PAGE));
     }
   };
 
-  const handlePostPress = (post) => {
+  // Handle search
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setShowAll(false);
+    filterPosts(query);
+  };
+
+  // Toggle show all/less
+  const toggleShowAll = () => {
+    const newShowAll = !showAll;
+    setShowAll(newShowAll);
+    updateDisplayedPosts(filteredPosts, newShowAll);
+  };
+
+  // Fetch announcements from server
+  const fetchAnnouncements = async () => {
+    try {
+      const LoginAPIURL = "https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getAnnouncement.php";
+      const response = await fetch(LoginAPIURL);
+      const jsonResponse = await response.json();
+
+      if (jsonResponse.Status) {
+        setPosts(jsonResponse.Data);
+        setFilteredPosts(jsonResponse.Data);
+        updateDisplayedPosts(jsonResponse.Data, false);
+
+        // Load read post status from AsyncStorage
+        const storedReadPosts = await AsyncStorage.getItem('readPosts');
+        if (storedReadPosts) {
+          setReadPosts(JSON.parse(storedReadPosts));
+        }
+      } else {
+        Alert.alert('Error', jsonResponse.Message);
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+      Alert.alert('Error', 'Unable to fetch announcements');
+    }
+  };
+
+  // Handle pull to refresh
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setSearchQuery('');
+    setShowAll(false);
+    fetchAnnouncements().then(() => setRefreshing(false));
+  }, []);
+
+  // Mark post as read and open modal
+  const handlePostPress = async (post) => {
+    const updatedReadPosts = {
+      ...readPosts,
+      [post.title]: true
+    };
+    setReadPosts(updatedReadPosts);
+    await AsyncStorage.setItem('readPosts', JSON.stringify(updatedReadPosts));
     setSelectedPost(post);
     setModalVisible(true);
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  // Close modal
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedPost(null);
   };
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchAnnouncements();
+  }, []);
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.postsContainer}>
-        {posts.map((post, index) => (
-          <ForumPost
+      <SearchBar onSearch={handleSearch} />
+
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }
+      >
+        {displayedPosts.map((post, index) => (
+          <AnnouncementPost
             key={index}
-            title={post.title}
-            content={post.content}
-            date_time={post.date_time}
+            {...post}
+            isOpened={readPosts[post.title] || false}
             onPress={() => handlePostPress(post)}
           />
         ))}
+        
+        {filteredPosts.length > ITEMS_PER_PAGE && (
+          <TouchableOpacity 
+            style={styles.showMoreButton} 
+            onPress={toggleShowAll}
+          >
+            <Text style={styles.showMoreButtonText}>
+              {showAll ? "Show Less" : `Show More (${filteredPosts.length - ITEMS_PER_PAGE} more)`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
-      {/* Modal for displaying post details */}
+      {/* Full Post Modal */}
       <Modal
-        animationType="fade"
+        animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalView}>
-            <View style={styles.modalHeader}>
-              <MaterialIcons name="announcement" size={30} color="#fff" />
-              <Text style={styles.modalTitle}>Announcement</Text>
-            </View>
-            {selectedPost && (
-              <>
-                <Text style={styles.modalPostTitle}>{selectedPost.title}</Text>
-                <Text style={styles.modalContent}>{selectedPost.content}</Text>
-                <Text style={styles.modalDate}>{formatDate(selectedPost.date_time)}</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{selectedPost?.title}</Text>
+            <ScrollView>
+              <Text style={styles.modalDescription}>
+                {selectedPost?.content}
+              </Text>
+              <Text style={styles.modalDateTime}>
+                {selectedPost?.date_time}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -107,104 +218,108 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  postsContainer: {
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 10,
+    margin: 10,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
     flex: 1,
-    padding: 16,
+    fontSize: 16,
+    color: '#333',
   },
   postContainer: {
     backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff6b6b',
+    padding: 15,
+    marginVertical: 5,
+    marginHorizontal: 10,
+    borderRadius: 10,
+    elevation: 2,
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
+    marginLeft: 10,
+    flex: 1,
+  },
+  opened: {
+    color: '#666',
+  },
+  unopened: {
+    color: '#000',
+  },
+  postContent: {
+    marginLeft: 34,
   },
   description: {
-    color: '#555',
+    color: '#666',
+    marginBottom: 5,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  dateTime: {
+    color: '#999',
+    fontSize: 12,
+  },
+  showMoreButton: {
+    backgroundColor: '#ff6b6b',
+    padding: 15,
+    margin: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
-  modalView: {
-    width: '85%',
+  showMoreButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: {
-    width: '100%',
-    backgroundColor: '#ff6b6b',
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    maxHeight: '80%',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 10,
+    marginBottom: 15,
   },
-  modalPostTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 10,
+  modalDescription: {
     color: '#333',
-    textAlign: 'center',
-  },
-  modalContent: {
-    fontSize: 16,
-    color: '#555',
     marginBottom: 10,
-    textAlign: 'center',
+    lineHeight: 20,
   },
-  modalDate: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 20,
+  modalDateTime: {
+    color: '#999',
+    fontSize: 12,
+    marginBottom: 15,
   },
   closeButton: {
     backgroundColor: '#ff6b6b',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    padding: 12,
     borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10,
   },
   closeButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

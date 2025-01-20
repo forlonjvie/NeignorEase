@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/Ionicons';
+import md5 from 'md5';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -15,12 +18,15 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
 
-    const LoginAPIURL = "http://172.69.69.115/4Capstone/app/db_connection/login.php";
+    const LoginAPIURL = "https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/login.php";
+    //const LoginAPIURL = "https://srv1823-files.hstgr.io/8e20dca8ee2ce4d6/files/public_html/app/db_connection/login.php";
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
     };
-    const data = { email, password };
+
+    const hashedPassword = md5(password);
+    const data = { email, password: hashedPassword };
 
     try {
       const response = await fetch(LoginAPIURL, {
@@ -41,7 +47,7 @@ const LoginScreen = ({ navigation }) => {
 
         if (userData) {
           await AsyncStorage.setItem('user', JSON.stringify(userData));
-          await AsyncStorage.setItem('sessionKey', userData.sessionKey || ''); // Ensure sessionKey is saved
+          await AsyncStorage.setItem('sessionKey', userData.sessionKey || '');
           navigation.navigate('Home');
         } else {
           Alert.alert("Login Failed", "User data is missing.");
@@ -56,41 +62,53 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const navigateToSignUp = () => {
-    navigation.navigate('Create'); // Assumes 'Create' is the name of the sign-up screen in your navigator
+    navigation.navigate('Create');
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <Image source={require('../assets/logo2.png')} style={styles.logo} />
 
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
+      <View style={styles.formContainer}>
+        <TextInput
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
 
-      <TextInput
-        placeholder="Password"
-        secureTextEntry={true}
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-      />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            style={styles.inputPassword}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Icon
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={24}
+              color="#888"
+              style={styles.eyeIcon}
+            />
+          </TouchableOpacity>
+        </View>
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.signUpButton} onPress={navigateToSignUp}>
-        <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.signUpButton} onPress={navigateToSignUp}>
+          <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -100,26 +118,57 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f0f4f8',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 40,
-    color: '#333',
+  logo: {
+    width: 300,
+    height: 300,
+    alignSelf: 'center',
+    marginBottom: 50,
+    marginTop: 100,
+  },
+  formContainer: {
+    backgroundColor: 'rgba(29,87,68,255)',
+    borderRadius: 15,
+    padding: 20,
+    paddingVertical: 30,
+    height: 400,
   },
   input: {
     height: 50,
-    borderColor: '#ddd',
+    borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 15,
     marginBottom: 20,
     backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
+    marginTop: 10,
+  },
+  inputPassword: {
+    flex: 1,
+    height: 50,
+    paddingHorizontal: 15,
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
+    borderRadius: 8,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 20,
+    backgroundColor: '#fff',
+  },
+  eyeIcon: {
+    paddingHorizontal: 15,
   },
   loginButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: 'rgba(0,148,68,255)',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -135,7 +184,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   signUpText: {
-    color: '#2980b9',
+    color: '#fff',
     fontSize: 16,
   },
 });

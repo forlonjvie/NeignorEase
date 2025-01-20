@@ -10,6 +10,7 @@ const GuestList = () => {
   const navigation = useNavigation();
   const [isSidebarVisible, setSidebarVisible] = useState(false);
   const [guests, setGuests] = useState([]);
+  const [user, setUser] = useState(null); // Add this line to define `user` state
   const [loading, setLoading] = useState(true);
 
   const toggleSidebar = () => {
@@ -22,14 +23,16 @@ const GuestList = () => {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
           const { username } = JSON.parse(userData);
-          const response = await axios.get(`http://172.69.69.115/4Capstone/app/db_connection/getVisit.php?username=${username}`);
-          if (response.data.error) {
+          const userResponse = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getuser.php?username=${username}`);
+          setUser(userResponse.data); // Now this will work
+
+          const visitResponse = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getVisit.php?username=${username}`);
+          if (visitResponse.data.error) {
             setGuests([]);
-            setLoading(false); // No visitor case
           } else {
-            setGuests(response.data);
-            setLoading(false);
+            setGuests(visitResponse.data);
           }
+          setLoading(false);
         } else {
           navigation.navigate('Login');
         }
@@ -38,7 +41,14 @@ const GuestList = () => {
         navigation.navigate('Login');
       }
     };
+
     getUserData();
+
+    const intervalId = setInterval(() => {
+      getUserData();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
   }, [navigation]);
 
   const handleLogout = async () => {
@@ -52,23 +62,20 @@ const GuestList = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.guestItem}>
-      <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.guestImage} />
+       <Image 
+              source={{ uri: `https://darkorchid-caribou-718106.hostingersite.com/image/${item.Guest_photo}` }} 
+              style={styles.profileImage} 
+            />
       <View style={styles.guestInfo}>
-        <Text style={styles.guestName}>{item.Guest_name}</Text>
-        <Text style={[styles.offScreen, styles.guestAddress]}>
-  <Icon name="place" size={16} color="#888" /> {item.guest_add}
-</Text>
-<Text style={[styles.offScreen, styles.guestEmail]}>
-  <Icon name="email" size={16} color="#888" /> {item.Guest_email}
-</Text>
-<Text style={[styles.offScreen, styles.guestEmail]}>
-  <Icon name="place" size={16} color="#888" /> {item.relation}
-</Text>
-<Text style={[styles.offScreen, styles.guestEmail]}>
-  <Icon name="place" size={16} color="#888" /> {item.visit_date}
-</Text>
-
-        <Text style={styles.guestMessage}><Icon name="message" size={16} color="#888" /> {item.message}</Text>
+        <Text style={styles.guestName}>
+          {`${item.Guest_lname}, ${item.Guest_fname} ${item.Guest_mname ? item.Guest_mname + ' ' : ''}${item.Guest_afname || ''}`}
+        </Text>
+        <Text style={styles.guestDetail}>
+          <Icon name="place" size={16} color="#888" /> {item.guest_add}
+        </Text>
+        <Text style={styles.guestDetail}>
+          <Icon name="event" size={16} color="#888" /> {item.visit_date}
+        </Text>
       </View>
       <TouchableOpacity
         style={styles.statusButton}
@@ -86,6 +93,7 @@ const GuestList = () => {
       </View>
     );
   }
+  const imageUrl = user && user.ho_pic ? `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${user.ho_pic}` : null;
 
   return (
     <View style={styles.container}>
@@ -95,7 +103,11 @@ const GuestList = () => {
         </TouchableOpacity>
         <Text style={styles.title}>Guest List</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Image source={require('../assets/man.png')} style={styles.userImage} />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.profileImage} />
+          ) : (
+            <Icon name="person" size={40} color="#fff" /> // Placeholder icon if no image
+          )}
         </TouchableOpacity>
       </View>
 
@@ -104,7 +116,7 @@ const GuestList = () => {
       <View style={styles.content}>
         {guests.length === 0 ? (
           <View style={styles.noVisitorContainer}>
-            <Text style={styles.noVisitorText}>NO Visitor</Text>
+            <Text style={styles.noVisitorText}>No Visitor</Text>
           </View>
         ) : (
           <FlatList
@@ -120,7 +132,6 @@ const GuestList = () => {
 };
 
 export default GuestList;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -131,16 +142,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     marginTop: 30,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     elevation: 3,
   },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
+    flex: 1,
+    textAlign: 'center',
   },
   userImage: {
     width: 40,
@@ -181,19 +201,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
-  guestAddress: {
-    fontSize: 14,
-    color: '#888',
-  },
-  offScreen: {
-    position: 'absolute',
-    left: -9999, // Move off-screen
-  },
-  guestEmail: {
-    fontSize: 14,
-    color: '#888',
-  },
-  guestMessage: {
+  guestDetail: {
     fontSize: 14,
     color: '#888',
   },
@@ -206,7 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     elevation: 2,
   },
   statusButtonText: {
@@ -221,6 +229,6 @@ const styles = StyleSheet.create({
   noVisitorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007bff',
+    color: '#aaa',
   },
 });

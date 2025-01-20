@@ -7,23 +7,21 @@ import axios from 'axios';
 
 const GuestList = () => {
   const navigation = useNavigation();
-  const [isSidebarVisible, setSidebarVisible] = useState(false);
   const [guests, setGuests] = useState([]);
-
-  const toggleSidebar = () => {
-    setSidebarVisible(!isSidebarVisible);
-  };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUserData = async () => {
+    const fetchGuests = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
           const { username } = JSON.parse(userData);
-          const response = await axios.get(`http://172.69.69.115/4Capstone/app/db_connection/getVisitLog.php?username=${username}`);
+          const response = await axios.get(
+            `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getVisitLog.php?username=${username}`
+          );
           if (response.data.error) {
-            console.error("User not found");
-            navigation.navigate('Login');
+            console.error(response.data.error);
+            setGuests([]);
           } else {
             setGuests(response.data);
           }
@@ -31,23 +29,16 @@ const GuestList = () => {
           navigation.navigate('Login');
         }
       } catch (error) {
-        console.error("Failed to get user data:", error);
-        navigation.navigate('Login');
+        console.error('Error fetching guests:', error);
+      } finally {
+        setLoading(false);
       }
     };
-    getUserData();
+
+    fetchGuests();
   }, [navigation]);
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('user');
-      navigation.navigate('Login');
-    } catch (error) {
-      console.error("Failed to remove user data:", error);
-    }
-  };
-
-  if (guests.length === 0) {
+  if (loading) {
     return (
       <View style={styles.container}>
         <Text>Loading...</Text>
@@ -57,30 +48,49 @@ const GuestList = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.guestItem}>
-      <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.guestImage} />
+      <Image
+        source={{
+          uri: item.Guest_photo || 'https://via.placeholder.com/100',
+        }}
+        style={styles.guestImage}
+      />
       <View style={styles.guestInfo}>
-        <Text style={styles.guestName}>{item.Guest_name}</Text>
-        <Text style={styles.guestAddress}><Icon name="place" size={16} color="#888" /> {item.guest_add}</Text>
-        <Text style={styles.guestEmail}><Icon name="email" size={16} color="#888" /> {item.Guest_email}</Text>
-        <Text style={styles.guestMessage}><Icon name="message" size={16} color="#888" /> {item.message}</Text>
+        <Text style={styles.guestName}>
+          {`${item.Guest_fname} ${item.Guest_mname || ''} ${item.Guest_lname}`.trim()}
+        </Text>
+        <Text style={styles.guestDetails}>
+          <Icon name="email" size={16} color="#888" /> {item.Guest_email}
+        </Text>
+        <Text style={styles.guestDetails}>
+          <Icon name="phone" size={16} color="#888" /> {item.guest_contact}
+        </Text>
+        <Text style={styles.guestDetails}>
+          <Icon name="home" size={16} color="#888" /> {item.guest_add || 'No address provided'}
+        </Text>
       </View>
       <TouchableOpacity
         style={styles.statusButton}
-        onPress={() => navigation.navigate('visit_log', { guest: item })}
+        onPress={() => navigation.navigate('a_details', { guest: item })}
       >
-        <Text style={styles.statusButtonText}>View</Text>
+        <Text style={styles.statusButtonText}>Details</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
     <View style={styles.content}>
-      <FlatList
-        data={guests}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-        style={styles.guestList}
-      />
+      {guests.length > 0 ? (
+        <FlatList
+          data={guests}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          style={styles.guestList}
+        />
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No confirmed guests for today</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -90,30 +100,9 @@ export default GuestList;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
-  },
-  header: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 15,
-    backgroundColor: '#007bff',
-    marginTop: 30,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#fff',
+    backgroundColor: '#f9f9f9',
   },
   content: {
     flex: 1,
@@ -147,17 +136,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
-  guestAddress: {
+  guestDetails: {
     fontSize: 14,
     color: '#888',
-  },
-  guestEmail: {
-    fontSize: 14,
-    color: '#888',
-  },
-  guestMessage: {
-    fontSize: 14,
-    color: '#888',
+    marginVertical: 2,
   },
   guestImage: {
     width: 50,
@@ -168,11 +150,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     elevation: 2,
   },
   statusButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#888',
   },
 });

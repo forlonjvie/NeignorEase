@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 
 // Function to fetch the last log of the current day for the guest
 const getLastLogForToday = async (username, setErrorMessage) => {
-  const todayLogURL = `http://172.69.69.115/4Capstone/app/guard/db_connection/get_today_guest.php?username=${username}`;
+  const todayLogURL = `http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/get_today_guest.php?username=${username}`;
 
   try {
     const response = await fetch(todayLogURL, {
@@ -29,7 +29,7 @@ const getLastLogForToday = async (username, setErrorMessage) => {
 
 // Function to save a log to the server (Entry/Exit)
 const saveLogToServer = async (username, point, setErrorMessage) => {
-  const saveLogURL = 'http://172.69.69.115/4Capstone/app/guard/db_connection/save_log.php';
+  const saveLogURL = 'http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/save_log.php';
   const logData = {
     name: username, // guest's OTP
     point: point,   // Entry or Exit
@@ -80,6 +80,7 @@ const GuestInfo = ({ route }) => {
         guestName: guest.Guest_name,
         logTime: new Date().toLocaleString(),
         action: nextAction,
+        Date_confirmed: guest.Date_confirmed,
       },
     ]);
 
@@ -96,6 +97,9 @@ const GuestInfo = ({ route }) => {
       </Text>
       <Text style={styles.guestDetails}>
         <Icon name="email" size={16} color="#888" /> OTP: {guest.OTP}
+      </Text>
+      <Text style={styles.guestDetails}>
+        <Icon name="access-time" size={16} color="#888" /> Confirm at: {guest.Date_confirmed}
       </Text>
       <Text style={styles.guestDetails}>
         <Icon name="access-time" size={16} color="#888" /> Validity: {guest.Validity}
@@ -124,7 +128,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#007bff', // Add a border to the image for emphasis
+    borderColor: 'rgb(10, 80, 57)', // Add a border to the image for emphasis
   },
   guestName: {
     fontSize: 24,
@@ -139,7 +143,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 25,

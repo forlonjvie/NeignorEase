@@ -21,7 +21,7 @@ const QRCode = () => {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
           const { username } = JSON.parse(userData);
-          const response = await axios.get(`http://172.69.69.115/4Capstone/app/db_connection/getuser.php?username=${username}`);
+          const response = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getuser.php?username=${username}`);
           if (response.data.error) {
             console.error("User not found");
             navigation.navigate('Login');
@@ -50,7 +50,7 @@ const QRCode = () => {
 
   const handleInquiry = async () => {
     try {
-      const response = await axios.post('http://172.69.69.115/4Capstone/app/db_connection/submit_inquiry.php', {
+      const response = await axios.post('https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/submit_inquiry.php', {
         homeowner_id: user.HO_Id,
         name: `${user.fname} ${user.lname}`,
         address: user.hnum,
@@ -68,8 +68,8 @@ const QRCode = () => {
       </View>
     );
   }
-  
-  const imageUrl = `http://172.69.69.115/4Capstone/stuff/${user.qr_code}`;
+  const imageUrl_qr = `https://darkorchid-caribou-718106.hostingersite.com/php_functions/${user.qr_code}`;
+  const imageUrl = user && user.ho_pic ? `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${user.ho_pic}` : null;
 
   return (
     <View style={styles.container}>
@@ -77,9 +77,13 @@ const QRCode = () => {
         <TouchableOpacity onPress={toggleSidebar}>
           <Icon name="menu" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.title}>My QR</Text>
+        <Text style={styles.title}>My Qr Code</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Image source={require('../assets/man.png')} style={styles.userImage} />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.profileImage} />
+          ) : (
+            <Icon name="person" size={40} color="#fff" /> // Placeholder icon if no image
+          )}
         </TouchableOpacity>
       </View>
 
@@ -88,14 +92,14 @@ const QRCode = () => {
       <View style={styles.profileContent}>
         <View style={styles.headerContent}>
           <Text style={styles.name}>{user.fname} {user.lname}</Text>
-          <Image source={{ uri: imageUrl }} style={styles.qrImage} />
+          <Image source={{ uri: imageUrl_qr }} style={styles.qrImage} />
           <Text style={styles.detail}>This QR code is used for logging your entry or exit. Simply scan to record your time of arrival or departure.</Text>
         </View>
 
-        {/* Inquiry Button */}
+        {/* Inquiry Button 
         <TouchableOpacity style={styles.inquiryButton} onPress={handleInquiry}>
           <Text style={styles.inquiryButtonText}>Send Inquiry</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>*/}
       </View>
     </View>
   );
@@ -111,7 +115,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     marginTop: 30,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
@@ -137,6 +141,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
   qrImage: {
     width: 300,
     height: 300,
@@ -157,7 +168,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   inquiryButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',

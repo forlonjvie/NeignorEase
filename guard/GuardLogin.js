@@ -15,7 +15,7 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
 
-    const LoginAPIURL = "http://172.69.69.115/4Capstone/app/guard/db_connection/guardlogin.php";
+    const LoginAPIURL = "http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/guardlogin.php";
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -42,7 +42,7 @@ const LoginScreen = ({ navigation }) => {
         if (userData) {
           await AsyncStorage.setItem('user', JSON.stringify(userData));
           await AsyncStorage.setItem('sessionKey', userData.sessionKey || ''); // Save sessionKey guard_HO_Very
-          navigation.navigate('TodayGuest');
+          navigation.navigate('guard_OTP');
         } else {
           Alert.alert("Login Failed", "User data is missing.");
         }

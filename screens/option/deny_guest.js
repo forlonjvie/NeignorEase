@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#007bff',
+    borderColor: 'rgb(10, 80, 57)',
   },
   selectedReason: {
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
   },
   reasonText: {
     fontSize: 16,
-    color: '#007bff',
+    color: 'rgb(10, 80, 57)',
   },
   buttons: {
     flexDirection: 'row',
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 10,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     borderRadius: 5,
   },
   buttonText: {

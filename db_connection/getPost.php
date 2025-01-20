@@ -10,7 +10,7 @@ if (!$CN) {
 }
 
 // Corrected SQL query with FROM clause
-$query = "SELECT post_id, title, content, created_at, HO_username 
+$query = "SELECT post_id, title, content, created_at, HO_username , image_path
           FROM posts 
           ORDER BY post_id DESC";
 

@@ -1,10 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Sidebar from './Sidebar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-const Liabilities = ({ navigation }) => {
+const MonthlyDue = ({ navigation }) => {
   const [isSidebarVisible, setSidebarVisible] = useState(false);
+  const [username, setUsername] = useState('');
+  const [monthlyDues, setMonthlyDues] = useState([]);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getUserData = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const { username } = JSON.parse(userData);
+          setUsername(username);
+          fetchMonthlyDue(username);
+          const userResponse = await axios.get(
+            `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getuser.php?username=${username}`
+          );
+          setUser(userResponse.data);
+        } else {
+          navigation.navigate('Login');
+        }
+      } catch (error) {
+        console.error('Failed to get user data:', error);
+        navigation.navigate('Login');
+      }
+    };
+    getUserData();
+  }, []);
+
+  const fetchMonthlyDue = async (username) => {
+    try {
+      const response = await axios.get(
+        `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getMonthlyDue.php?username=${username}`
+      );
+      if (response.data.error) {
+        setError(response.data.error);
+      } else {
+        setMonthlyDues(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly due:', error.message);
+      setError('Failed to fetch monthly due');
+    }
+  };
 
   const toggleSidebar = () => {
     setSidebarVisible(!isSidebarVisible);
@@ -14,147 +59,123 @@ const Liabilities = ({ navigation }) => {
     navigation.navigate('Profile');
   };
 
-  const homeowner = {
-    name: 'Helena Hills',
-    image: require('../assets/man.png'),
-  };
+  const totalAmount = monthlyDues.reduce((total, due) => total + parseFloat(due.amount || 0), 0);
 
-  const currentMonthLiabilities = [
-    { title: 'Electric Bills', value: '₱1,450.00', info: 'Includes utilities and services', month: 'July', year: 2024 },
-    { title: 'Water Bills', value: '₱500.00', info: 'Includes utilities and services', month: 'July', year: 2024 },
-    { title: 'Maintenance Fee', value: '₱350.00', info: 'Covers upkeep and repairs', month: 'July', year: 2024 },
-    { title: 'Internet Bill', value: '₱1,200.00', info: 'Annual tax assessment', month: 'July', year: 2024 },
-  ];
-
-  const previousMonthLiabilities = [
-    { title: 'Electric Bills', value: '₱2,450.00', info: 'Includes utilities and services', month: 'June', year: 2024, paid: true },
-    { title: 'Water Bills', value: '₱350.00', info: 'Covers upkeep and repairs', month: 'June', year: 2024, paid: false },
-    { title: 'Property Tax', value: '₱1,200.00', info: 'Annual tax assessment', month: 'June', year: 2024, paid: true },
-    { title: 'Electric Bills', value: '₱2,450.00', info: 'Includes utilities and services', month: 'May', year: 2024, paid: true },
-    { title: 'Water Bills', value: '₱350.00', info: 'Covers upkeep and repairs', month: 'May', year: 2024, paid: true },
-    { title: 'Internet Bill', value: '₱1,200.00', info: 'Annual tax assessment', month: 'May', year: 2024, paid: false },
-  ];
+  const imageUrl = user?.ho_pic ? `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${user.ho_pic}` : null;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={toggleSidebar}>
-          <Icon name="menu" size={24} color="#000" />
+          <Icon name="menu" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.title}>Financial Liabilities</Text>
+        <Text style={styles.title}>My Bill</Text>
         <TouchableOpacity onPress={navigateToProfile}>
-          <Image source={homeowner.image} style={styles.userImage} />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.profileImage} />
+          ) : (
+            <Icon name="person" size={40} color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
 
       {isSidebarVisible && <Sidebar onClose={toggleSidebar} navigation={navigation} />}
 
       <ScrollView style={styles.content}>
-        <Text style={styles.sectionTitle}>Current Month</Text>
-        {currentMonthLiabilities.map((item, index) => (
-          <View key={index} style={styles.card}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardValue}>{item.value}</Text>
-            <Text style={styles.cardInfo}>{item.info}</Text>
-            <Text style={styles.cardDate}>{item.month} {item.year}</Text>
-          </View>
-        ))}
-        <Text style={styles.sectionTitle}>Previous Months</Text>
-        {previousMonthLiabilities.map((item, index) => (
-          <View
-            key={index}
-            style={[
-              styles.card,
-              item.paid ? styles.cardPaid : styles.cardUnpaid,
-            ]}
-          >
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardValue}>{item.value}</Text>
-            <Text style={styles.cardInfo}>{item.info}</Text>
-            <Text style={styles.cardDate}>{item.month} {item.year}</Text>
-          </View>
-        ))}
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : monthlyDues.length > 0 ? (
+          <>
+            {monthlyDues.map((due, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.card,
+                  due.status === 'Overdue' && styles.overdueCard,
+                ]}
+              >
+                <View style={styles.infoItem}>
+                  <Text style={styles.label}>Month:</Text>
+                  <Text style={styles.value}>{due.month}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.label}>Year:</Text>
+                  <Text style={styles.value}>{due.year}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.label}>Amount Due:</Text>
+                  <Text style={styles.value}>₱ {due.amount}.00</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.label}>Status:</Text>
+                  <Text style={styles.value}>{due.status}</Text>
+                </View>
+              </View>
+            ))}
+
+            <View style={styles.totalBillsContainer}>
+              <Text style={styles.totalBillsText}>Total Bills: ₱ {totalAmount.toFixed(2)}</Text>
+            </View>
+          </>
+        ) : (
+          <Text style={styles.loading}>Loading...</Text>
+        )}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, backgroundColor: '#f9f9f9' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     marginTop: 30,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     elevation: 3,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userImage: {
+  title: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  profileImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#fff',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    marginTop: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
+  content: { flex: 1, padding: 20 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 20,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardPaid: {
-    borderColor: 'green',
+    marginBottom: 20,
     borderWidth: 1,
+    borderColor: '#ddd',
   },
-  cardUnpaid: {
-    borderColor: 'red',
-    borderWidth: 1,
+  overdueCard: { borderColor: 'red' },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
-  },
-  cardValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#007bff',
-  },
-  cardInfo: {
-    fontSize: 14,
-    color: '#666',
-  },
-  cardDate: {
-    fontSize: 14,
-    color: '#888',
+  label: { fontWeight: 'bold', fontSize: 16, color: '#333' },
+  value: { fontSize: 16, color: '#666' },
+  totalBillsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
+  totalBillsText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
+  error: { color: 'red', fontSize: 16, textAlign: 'center' },
+  loading: { fontSize: 18, textAlign: 'center' },
 });
 
-export default Liabilities;
+export default MonthlyDue;
+
+

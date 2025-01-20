@@ -14,20 +14,26 @@ const GuestList = () => {
     const getUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
-        const sessionKey = await AsyncStorage.getItem('sessionKey'); // Get sessionKey
+        const sessionKey = await AsyncStorage.getItem('sessionKey');
 
         if (userData && sessionKey) {
           const { username } = JSON.parse(userData);
-          const response = await axios.get('http://172.69.69.115/4Capstone/app/guard/db_connection/getTodayGuest.php', {
+          const response = await axios.get('http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/getTodayGuest.php', {
             headers: {
-              'Authorization': `Bearer ${sessionKey}` // Pass sessionKey in headers
+              'Authorization': `Bearer ${sessionKey}`
             }
           });
 
           if (response.data.error) {
             setGuests([]);
           } else {
-            setGuests(response.data);
+            // Filter guests with validity greater than or equal to today
+            const today = new Date();
+            const validGuests = response.data.filter(guest => {
+              const guestValidityDate = new Date(guest.Validity);
+              return guestValidityDate >= today;
+            });
+            setGuests(validGuests);
           }
         } else {
           navigation.navigate('Login');
@@ -43,25 +49,31 @@ const GuestList = () => {
   }, [navigation]);
 
   const renderItem = ({ item }) => (
-<View style={styles.guestItem}>
-  <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.guestImage} />
-  <View style={styles.guestInfo}>
-    <Text style={styles.guestName}>{item.Guest_name}</Text>
-    <Text style={styles.guestValidity}><Icon name="calendar-today" size={16} color="#888" /> Validity: {item.Validity}</Text>
-    
-    {/* Hidden Fields */}
-    <Text style={[styles.guestAddress, styles.hidden]}><Icon name="place" size={16} color="#888" /> Confirmed on: {item.Date_confirmed}</Text>
-    <Text style={[styles.HO_name, styles.hidden]}><Icon name="email" size={16} color="#888" /> Confirmed on: {item.HO_name}</Text>
-    <Text style={[styles.guestEmail, styles.hidden]}><Icon name="email" size={16} color="#888" /> OTP: {item.OTP}</Text>
-  </View>
-  <TouchableOpacity
-    style={styles.statusButton}
-    onPress={() => navigation.navigate('GuestInfo', { guest: item })}
-  >
-    <Text style={styles.statusButtonText}>View</Text>
-  </TouchableOpacity>
-</View>
-
+    <View style={styles.guestItem}>
+      <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.guestImage} />
+      <View style={styles.guestInfo}>
+        <Text style={styles.guestName}>{item.Guest_name}</Text>
+        <Text style={styles.guestValidity}>
+          <Icon name="calendar-today" size={16} color="#888" /> Validity: {item.Validity}
+        </Text>
+        {/* Hidden Fields */}
+        <Text style={[styles.guestAddress, styles.hidden]}>
+          <Icon name="place" size={16} color="#888" /> Confirmed on: {item.Date_confirmed}
+        </Text>
+        <Text style={[styles.HO_name, styles.hidden]}>
+          <Icon name="email" size={16} color="#888" /> Confirmed by: {item.HO_name}
+        </Text>
+        <Text style={[styles.guestEmail, styles.hidden]}>
+          <Icon name="email" size={16} color="#888" /> OTP: {item.OTP}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={styles.statusButton}
+        onPress={() => navigation.navigate('GuestInfo', { guest: item })}
+      >
+        <Text style={styles.statusButtonText}>View</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   if (loading) {
@@ -77,7 +89,7 @@ const GuestList = () => {
       <View style={styles.content}>
         {guests.length === 0 ? (
           <View style={styles.noVisitorContainer}>
-            <Text style={styles.noVisitorText}>NO Visitor</Text>
+            <Text style={styles.noVisitorText}>No Valid Visitors</Text>
           </View>
         ) : (
           <FlatList
@@ -107,7 +119,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   hidden: {
-    display: 'none', // This hides the element
+    display: 'none',
   },
   guestItem: {
     flexDirection: 'row',
@@ -134,7 +146,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
-  guestMessage: {
+  guestValidity: {
     fontSize: 14,
     color: '#888',
   },
@@ -147,7 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     elevation: 2,
   },
   statusButtonText: {
@@ -162,6 +174,6 @@ const styles = StyleSheet.create({
   noVisitorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007bff',
+    color: 'rgb(10, 80, 57)',
   },
 });

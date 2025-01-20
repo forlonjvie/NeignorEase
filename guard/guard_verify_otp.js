@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal } fro
 
 // Function to verify OTP
 const fetchOTPVerification = async (otp, setOTPValid, setOtpData, setModalVisible, setOtpDetails) => {
-  const OTPVerificationURL = "http://172.69.69.115/4Capstone/app/guard/db_connection/getOTP.php";
+  const OTPVerificationURL = "http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/getOTP.php";
 
   try {
     const response = await fetch(OTPVerificationURL, {
@@ -33,7 +33,7 @@ const fetchOTPVerification = async (otp, setOTPValid, setOtpData, setModalVisibl
 
 // Function to save log entry for entry/exit
 const saveLog = async (guestName, point, setOtpData, setOTPValid, setOtp, setModalVisible) => {
-  const saveLogURL = "http://172.69.69.115/4Capstone/app/guard/db_connection/save_log.php";
+  const saveLogURL = "http://192.168.43.178/12_18/4Capstone/app/guard/db_connection/save_log.php";
 
   try {
     const response = await fetch(saveLogURL, {

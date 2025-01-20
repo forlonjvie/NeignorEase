@@ -19,7 +19,7 @@ if ($conn->connect_error) {
 $username = $_GET['username']; 
 
 // Prepare and execute SQL query
-$sql = "SELECT `HO_Id`, `username`, `fname`, `lname`, `hnum`, `con_num`, `email`,  `mid_ini` FROM `home_owner` WHERE username = ?";
+$sql = "SELECT `HO_Id`, `username`, `fname`, `lname`, `hnum`, `con_num`, `email`,  `mid_ini` , `qr_code` , `ho_pic` FROM `home_owner` WHERE username = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("s", $username);
 $stmt->execute();

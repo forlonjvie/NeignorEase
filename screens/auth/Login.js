@@ -15,7 +15,7 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
 
-    const LoginAPIURL = "http://172.69.69.115/4Capstone/app/db_connection/login.php";
+    const LoginAPIURL = "https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/login.php";
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json'

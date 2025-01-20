@@ -4,89 +4,124 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Sidebar from './Sidebar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const Guest = ({ route, navigation }) => {
-  const { guest } = route.params; // Retrieve guest details from route params
+  const { guest } = route.params; // Guest details from route params
   const [isSidebarVisible, setSidebarVisible] = useState(false);
-  const [username, setUsername] = useState(''); // Store username here
+  const [username, setUsername] = useState(''); // Store username
+  const [showDatePicker, setShowDatePicker] = useState(false); // Date picker visibility
+  const [validity, setValidity] = useState(new Date()); // Default validity to today's date
 
   useEffect(() => {
-    const getUserData = async () => {
+    const fetchUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
-          const { username } = JSON.parse(userData);
-          setUsername(username); // Store username in state
+          const parsedData = JSON.parse(userData);
+          setUsername(parsedData.username); // Set username from stored data
         } else {
-          navigation.navigate('Login');
+          navigation.navigate('Login'); // Redirect to login if no user data
         }
       } catch (error) {
-        console.error("Failed to get user data:", error);
+        console.error('Error fetching user data:', error);
         navigation.navigate('Login');
       }
     };
-    getUserData();
-  }, []);
+    fetchUserData();
+  }, [navigation]);
 
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setSidebarVisible(prevState => !prevState);
-  };
+  const toggleSidebar = () => setSidebarVisible(prevState => !prevState);
 
-  // Handle guest acceptance
   const handleAccept = async () => {
-    console.log('Guest entry accepted');
+    if (!guest || !username) {
+      console.error('Missing guest or user details');
+      return;
+    }
 
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit number
-
-    // Set validity date to one day from now
-    const validityDate = new Date();
-    validityDate.setDate(validityDate.getDate() + 1);
-    const validity = validityDate.toISOString().split('T')[0]; // Format date as YYYY-MM-DD
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const postData = {
+      guestName: `${guest.Guest_lname.replace(/ /g, '_')}_${guest.Guest_fname.replace(/ /g, '_')}_${guest.Guest_mname ? guest.Guest_mname.replace(/ /g, '_') + '_' : ''}${guest.Guest_afname ? guest.Guest_afname.replace(/ /g, '_') : ''}`,
+      guestEmail: guest.Guest_email,
+      guestContact: guest.guest_contact,
+      hoName: username,
+      hoHousenum: guest.guest_add,
+      arrival: guest.visit_date,
+      otp: otp,
+      validity: validity.toISOString().split('T')[0], // Use the selected validity date
+    };
 
     try {
-      const response = await fetch('http://172.69.69.115/4Capstone/app/db_connection/post_confirmed_guest.php', { // Update the URL to your server
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          guestName: guest.Guest_name,
-          guestEmail: guest.Guest_email,
-          guestContact: guest.guestContact,
-          hoName: username, // Use the stored username here
-          hoHousenum: guest.hoHousenum, // Replace with actual House Number if needed
-          otp: otp,
-          validity: validity,
-        }),
-      });
+      const response = await axios.post('https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/post_confirmed_guest.php', postData);
 
-      if (response.ok) {
-        console.log('Guest entry confirmed and email sent');
-        navigation.navigate('GuestAccepted', { guest, otp, validity }); // Pass additional data if needed
+      if (response.status === 200) {
+        console.log('Guest confirmed successfully:', response.data);
+        navigation.navigate('Visit Request');
       } else {
-        console.error('Failed to confirm guest entry');
+        console.error('Failed to confirm guest:', response.data);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error confirming guest:', error);
     }
   };
 
-  // Handle guest denial
-  const handleDeny = () => {
-    console.log('Guest entry denied');
-    navigation.navigate('DenyGuest'); // Navigate to DenyGuest screen
+  // const handleDeny = () => {
+  //   console.log('Guest denied');
+  //   navigation.navigate('DenyGuest');
+  // };
+  const handleDeny = async () => {
+    if (!guest || !username) {
+      console.error("Missing guest or user details");
+      return;
+    }
+  
+    // Construct the guest name properly
+    const guestName = `${guest.Guest_lname.replace(/ /g, '_')}_${guest.Guest_fname.replace(/ /g, '_')}${
+      guest.Guest_mname ? '_' + guest.Guest_mname.replace(/ /g, '_') : ''
+    }${guest.Guest_afname ? '_' + guest.Guest_afname.replace(/ /g, '_') : ''}`;
+  
+    const postData = {
+      guestName: guestName,
+      guestEmail: guest.Guest_email,
+      guestContact: guest.guest_contact,
+      hoName: username,
+      hoHousenum: guest.guest_add,
+    };
+  
+    try {
+      const response = await axios.post(
+        "https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/post_deny_guest.php",
+        postData
+      );
+  
+      if (response.data?.status === "success") {
+        console.log("Deny Request Successful:", response.data);
+        alert("Guest request denied successfully.");
+        navigation.navigate("Visit Request");
+      } else {
+        console.error("Failed to deny guest:", response.data?.message || "Unknown error");
+        alert(response.data?.message || "Failed to deny guest.");
+      }
+    } catch (error) {
+      console.error("Error denying guest:", error);
+      alert("An error occurred while denying the guest request. Please try again.");
+    }
+  };
+  
+
+  const navigateToProfile = () => navigation.navigate('Profile');
+
+  const handleBackPress = () => navigation.goBack();
+
+  const showDatePickerModal = () => {
+    setShowDatePicker(true); // Show the date picker when called
   };
 
-  // Navigate to profile screen
-  const navigateToProfile = () => {
-    navigation.navigate('Profile');
-  };
-
-  // Handle back button press
-  const handleBackPress = () => {
-    navigation.goBack();
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate && selectedDate >= new Date()) {
+      setValidity(selectedDate); // Set validity date only if it's today or later
+    }
   };
 
   return (
@@ -105,153 +140,103 @@ const Guest = ({ route, navigation }) => {
       {/* Sidebar */}
       {isSidebarVisible && <Sidebar onClose={toggleSidebar} navigation={navigation} />}
 
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.heading}>Verify Guest Entry</Text>
-        <View style={styles.card}>
-          {/* Guest Profile Image */}
-          <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.profileImage} />
+{/* Main Content */}
+<View style={styles.content}>
+  <View style={styles.card}>
+    {/* Updated Image with Dynamic URL */}
+    {guest && (
+      <Image 
+        source={{ uri: `https://darkorchid-caribou-718106.hostingersite.com/image/${guest.Guest_photo}` }} 
+        style={styles.profileImage} 
+      />
+    )}
 
-          {/* Guest Details */}
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Name:</Text>
-            <Text style={styles.value}>{guest.Guest_name}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Email:</Text>
-            <Text style={styles.value}>{guest.Guest_email}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Contact Number:</Text>
-            <Text style={styles.value}>{guest.guest_contact}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Address:</Text>
-            <Text style={styles.value}>{guest.guest_add}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>RelaTion:</Text>
-            <Text style={styles.value}>{guest.relation}</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.label}>Message:</Text>
-            <Text style={styles.value}>{guest.message}</Text>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.buttons}>
-            <TouchableOpacity style={[styles.button, styles.acceptButton]} onPress={handleAccept}>
-              <Text style={styles.buttonText}>Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.denyButton]} onPress={handleDeny}>
-              <Text style={styles.buttonText}>Deny</Text>
-            </TouchableOpacity>
-          </View>
+    {/* Guest Details */}
+    {guest && (
+      <>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Name:</Text>
+          <Text style={styles.value}>
+            {guest.Guest_lname}, {guest.Guest_fname} {guest.Guest_mname ? guest.Guest_mname + ' ' : ''}{guest.Guest_afname ? guest.Guest_afname : ''}
+          </Text>
         </View>
-      </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Email:</Text>
+          <Text style={styles.value}>{guest.Guest_email}</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Contact:</Text>
+          <Text style={styles.value}>{guest.guest_contact}</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Address:</Text>
+          <Text style={styles.value}>{guest.guest_add}</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Relation:</Text>
+          <Text style={styles.value}>{guest.relation}</Text>
+        </View>
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Expected Arrival:</Text>
+          <Text style={styles.value}>{guest.visit_date}</Text>
+        </View>
+
+        {/* Date Picker */}
+        <View style={styles.infoItem}>
+          <Text style={styles.label}>Validity Date:</Text>
+          <TouchableOpacity onPress={showDatePickerModal} style={styles.datePickerButton}>
+            <Text style={styles.datePickerText}>{validity.toDateString()}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={validity}
+            mode="date"
+            display="default"
+            minimumDate={new Date()} // Prevent selecting previous dates
+            onChange={handleDateChange}
+          />
+        )}
+      </>
+    )}
+
+    {/* Action Buttons */}
+    <View style={styles.buttons}>
+      <TouchableOpacity style={[styles.button, styles.acceptButton]} onPress={handleAccept}>
+        <Text style={styles.buttonText}>Accept</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.button, styles.denyButton]} onPress={handleDeny}>
+        <Text style={styles.buttonText}>Deny</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</View>
+
     </View>
   );
 };
 
-// Styles for the component
+// Styles
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9f9f9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 15,
-    backgroundColor: '#007bff',
-    marginTop: 30,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  userImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  heading: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  label: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#333',
-  },
-  value: {
-    fontSize: 16,
-    color: '#666',
-  },
-  buttons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 10,
-    minWidth: 100,
-  },
-  acceptButton: {
-    backgroundColor: '#4CAF50',
-  },
-  denyButton: {
-    backgroundColor: '#F44336',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#f9f9f9' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, backgroundColor: '#0A5039', marginTop: 30, borderBottomLeftRadius: 10, borderBottomRightRadius: 10 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  userImage: { width: 40, height: 40, borderRadius: 20 },
+  content: { flex: 1, padding: 20 },
+  card: { backgroundColor: '#fff', borderRadius: 10, padding: 20, marginBottom: 20, elevation: 3 },
+  profileImage: { width: 100, height: 100, borderRadius: 50, alignSelf: 'center', marginBottom: 20 },
+  infoItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  label: { fontWeight: 'bold', fontSize: 16 },
+  value: { fontSize: 16 },
+  datePickerButton: { padding: 10, backgroundColor: '#e0e0e0', borderRadius: 5 },
+  datePickerText: { fontSize: 16 },
+  buttons: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  button: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5, justifyContent: 'center', alignItems: 'center', marginHorizontal: 10 },
+  acceptButton: { backgroundColor: '#4CAF50' },
+  denyButton: { backgroundColor: '#F44336' },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
+
 
 export default Guest;

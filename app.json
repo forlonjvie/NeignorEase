@@ -11,6 +11,14 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow NeighborEaseApp to access your camera."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -22,7 +30,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.NeighborEaseApp"
+      "package": "com.anonymous.NeighborEaseApp",
+      "permissions": ["CAMERA", "NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/favicon.png"

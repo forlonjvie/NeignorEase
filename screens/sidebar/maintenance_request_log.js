@@ -1,152 +1,197 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal, Alert, TouchableOpacity } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, Modal, Alert, TouchableOpacity, Image, ActivityIndicator, TextInput, RefreshControl,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Maintenance = ({ navigation }) => {
-  const [username, setUsername] = useState(''); // Store username here
-  const [pendingPosts, setPendingPosts] = useState([]);
-  const [completedPosts, setCompletedPosts] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState(null);
+  const [state, setState] = useState({
+    username: '',
+    posts: [],
+    filteredPosts: [],
+    selectedPost: null,
+    searchQuery: '',
+    loading: true,
+    refreshing: false,
+    error: null
+  });
 
   useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const userData = await AsyncStorage.getItem('user');
-        if (userData) {
-          const { username } = JSON.parse(userData);
-          setUsername(username); // Store username in state
-        } else {
-          navigation.navigate('Login');
-        }
-      } catch (error) {
-        console.error("Failed to get user data:", error);
-        navigation.navigate('Login');
-      }
-    };
-    getUserData();
+    checkAuth();
   }, []);
 
-  useEffect(() => {
-    if (username) {
-      fetchMaintenanceRequests();
-    }
-  }, [username]);
-
-  const fetchMaintenanceRequests = async () => {
-    const apiURL = `http://172.69.69.115/4Capstone/app/db_connection/getMaintenanceRequestLog.php?username=${username}`;
-
+  const checkAuth = async () => {
     try {
-      const response = await fetch(apiURL, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      const jsonResponse = await response.json();
-      if (jsonResponse.Status) {
-        const pending = jsonResponse.Data.filter(post => post.status === 'pending');
-        const completed = jsonResponse.Data.filter(post => post.status === 'completed');
-        setPendingPosts(pending);
-        setCompletedPosts(completed);
-      } else {
-        Alert.alert(jsonResponse.Message);
-      }
-    } catch (error) {
-      Alert.alert("Error: " + error.message);
+      const userData = await AsyncStorage.getItem('user');
+      if (!userData) throw new Error('Not authenticated');
+      const { username } = JSON.parse(userData);
+      setState(prev => ({ ...prev, username }));
+      fetchPosts(username);
+    } catch {
+      navigation.replace('Login');
     }
   };
 
-  const handlePostPress = (post) => {
-    setSelectedPost(post);
-    setModalVisible(true);
+  const fetchPosts = async (username) => {
+    try {
+      const response = await fetch(
+        `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getMaintenanceRequestLog.php?username=${username}`
+      );
+      const { Status, Data, Message } = await response.json();
+      
+      if (!Status) throw new Error(Message);
+      
+      const posts = Data.filter(post => post.status === 'pending');
+      setState(prev => ({
+        ...prev,
+        posts,
+        filteredPosts: posts,
+        loading: false,
+        error: null
+      }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error.message,
+        loading: false
+      }));
+    }
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  const handleSearch = query => {
+    setState(prev => ({
+      ...prev,
+      searchQuery: query,
+      filteredPosts: prev.posts.filter(post => 
+        post.title.toLowerCase().includes(query.toLowerCase())
+      )
+    }));
   };
+
+  const handleRefresh = async () => {
+    setState(prev => ({ ...prev, refreshing: true }));
+    await fetchPosts(state.username);
+    setState(prev => ({ ...prev, refreshing: false }));
+  };
+
+  if (state.loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+      </View>
+    );
+  }
+
+  if (state.error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>Error: {state.error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => fetchPosts(state.username)}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Pending Maintenance Requests</Text>
-      <ScrollView style={styles.postsContainer}>
-        {pendingPosts.map((post, index) => (
-          <MaintenancePost
-            key={index}
-            title={post.title}
-            content={post.content}
-            date_time={post.created_at}
-            status={post.status}
-            onPress={() => handlePostPress(post)}
-          />
-        ))}
-      </ScrollView>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Maintenance Requests</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search requests..."
+          value={state.searchQuery}
+          onChangeText={handleSearch}
+        />
+      </View>
 
-      <Text style={styles.sectionTitle}>Completed Maintenance Requests</Text>
-      <ScrollView style={styles.postsContainer}>
-        {completedPosts.map((post, index) => (
-          <MaintenancePost
-            key={index}
-            title={post.title}
-            content={post.content}
-            date_time={post.created_at}
-            status={post.status}
-            onPress={() => handlePostPress(post)}
-          />
-        ))}
-      </ScrollView>
-
-      {/* Modal for displaying post details */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={state.refreshing} onRefresh={handleRefresh} />
+        }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalView}>
-            <View style={styles.modalHeader}>
-              <MaterialIcons name="announcement" size={30} color="#fff" />
-              <Text style={styles.modalTitle}>Maintenance Request</Text>
-            </View>
-            {selectedPost && (
-              <>
-                <Text style={styles.modalPostTitle}>{selectedPost.title}</Text>
-                <Text style={styles.modalContent}>{selectedPost.content}</Text>
-                <Text style={styles.modalDate}>{formatDate(selectedPost.created_at)}</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+        {state.filteredPosts.map((post, index) => (
+          <RequestCard
+            key={index}
+            post={post}
+            onPress={() => setState(prev => ({ ...prev, selectedPost: post }))}
+          />
+        ))}
+        
+        {state.filteredPosts.length === 0 && (
+          <Text style={styles.emptyText}>No maintenance requests found</Text>
+        )}
+      </ScrollView>
+
+      <DetailModal
+        post={state.selectedPost}
+        visible={!!state.selectedPost}
+        onClose={() => setState(prev => ({ ...prev, selectedPost: null }))}
+      />
     </View>
   );
 };
 
-const MaintenancePost = ({ title, content, date_time, status, onPress }) => {
+const RequestCard = ({ post, onPress }) => (
+  <TouchableOpacity style={styles.card} onPress={onPress}>
+    <View style={styles.cardHeader}>
+      <MaterialIcons
+        name="error-outline"
+        size={24}
+        color={post.status === 'pending' ? '#ff6b6b' : '#4caf50'}
+      />
+      <Text style={styles.cardTitle} numberOfLines={1}>{post.title}</Text>
+    </View>
+    <Text style={styles.cardDescription} numberOfLines={2}>{post.content}</Text>
+    {post.image_url && (
+      <Image
+        source={{ uri: `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${post.image_url}` }}
+        style={styles.cardImage}
+      />
+    )}
+    <Text style={styles.cardDate}>
+      {new Date(post.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })}
+    </Text>
+  </TouchableOpacity>
+);
+
+const DetailModal = ({ post, visible, onClose }) => {
+  if (!post) return null;
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.postContainer,
-        { borderLeftColor: status === 'completed' ? '#4caf50' : '#ff6b6b' }, // Green for completed, red for pending
-      ]}
-    >
-      <View style={styles.postHeader}>
-        <MaterialIcons name="announcement" size={24} color={status === 'completed' ? '#4caf50' : '#ff6b6b'} />
-        <Text style={styles.title}>{title}</Text>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{post.title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <MaterialIcons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          {post.image_url && (
+            <Image
+              source={{ uri: `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${post.image_url}` }}
+              style={styles.modalImage}
+              resizeMode="cover"
+            />
+          )}
+          
+          <ScrollView style={styles.modalScroll}>
+            <Text style={styles.modalDescription}>{post.content}</Text>
+            <Text style={styles.modalDate}>
+              Submitted on {new Date(post.created_at).toLocaleString()}
+            </Text>
+          </ScrollView>
+        </View>
       </View>
-      <Text style={styles.description}>{content.substring(0, 100)}...</Text>
-    </TouchableOpacity>
+    </Modal>
   );
 };
 
@@ -155,111 +200,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginVertical: 16,
-    textAlign: 'center',
-  },
-  postsContainer: {
+  centerContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  postContainer: {
+  header: {
+    padding: 16,
     backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  searchInput: {
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+  },
+  content: {
+    padding: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderRadius: 8,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderLeftWidth: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  postHeader: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  title: {
+  cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '600',
     marginLeft: 8,
+    flex: 1,
   },
-  description: {
-    color: '#555',
+  cardDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  cardImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  cardDate: {
+    fontSize: 12,
+    color: '#888',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalView: {
-    width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: {
-    width: '100%',
-    backgroundColor: '#ff6b6b',
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 10,
-  },
-  modalPostTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 10,
-    color: '#333',
-    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 16,
+  },
+  modalImage: {
+    width: '100%',
+    height: 240,
+  },
+  modalScroll: {
+    padding: 16,
+  },
+  modalDescription: {
     fontSize: 16,
-    color: '#555',
-    marginBottom: 10,
-    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 16,
   },
   modalDate: {
     fontSize: 14,
-    color: '#888',
-    marginBottom: 20,
+    color: '#666',
+    marginBottom: 16,
   },
-  closeButton: {
-    backgroundColor: '#ff6b6b',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+  errorText: {
+    fontSize: 16,
+    color: '#ff6b6b',
+    marginBottom: 16,
   },
-  closeButtonText: {
+  retryButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '500',
   },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginTop: 32,
+  }
 });
 
 export default Maintenance;

@@ -16,12 +16,16 @@ import Guest from './screens/Guest';
 import GuestLog from './screens/guest_inquire';
 import GuestHistory from './screens/sidebar/guest_inquire_log';
 import Profile from './screens/profile';
+import ProfileEdit from './screens/profile_edit.js';
 import Create from './screens/Create_Acc';
 import CheckPayment from './screens/CheckPayment';
 import Announcement from './screens/sidebar/announcement';
 import Inbox from './screens/sidebar/inbox';
 import GuestList from './screens/sidebar/guest_list';
-import visit_log from './screens/sidebar/visit_log';
+import AddGuest from './screens/sidebar/add_guest';
+import List_reservation from './screens/sidebar/visit_reservation_list';
+import Bill_log from './screens/sidebar/billLog';
+import a_details from './screens/sidebar/A_visit_details';
 import Maintenance from './screens/sidebar/maintenance_request';
 import compose_blog from './screens/sidebar/compose_blog';
 import MaintenanceLog from './screens/sidebar/maintenance_request_log';
@@ -33,8 +37,12 @@ import PostDetail from './screens/PostDetail';
 import GuardLogin from './guard/GuardLogin';
 import guard_verify_otp from './guard/guard_verify_otp';
 import guard_HO_Very from './guard/guard_HO_Very';
+import guard_OTP from './guard/guard_OTP.js';
 import TodayGuest from './guard/GuestList';
+import guard_ho_qr from './guard/guard_ho_qr';
 import GuestInfo from './guard/GuestInfo';
+import Loading from './screens/utils/Loading.js';
+
 
 import { UserProvider } from './screens/UserContext';
 
@@ -45,28 +53,41 @@ function HomeTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        tabBarStyle: {
+          backgroundColor: '#f8f8f8', // Background color of the tab bar
+          paddingBottom: 5, // Add some padding at the bottom
+          height: 60, // Height of the tab bar
+        },
         tabBarIcon: ({ color, size }) => {
           let iconName;
           switch (route.name) {
             case 'Home':
-              iconName = 'home';
+              iconName = 'home-outline'; // Correct icon for Home
               break;
-            case 'GenerateQR':
-              iconName = 'qr-code';
+            case 'My Qr':
+              iconName = 'qr-code'; // Correct icon for QR Code
               break;
-            case 'Guest_log':
-              iconName = 'person';
+            case 'Visit Request':
+              iconName = 'people-outline'; // Use 'people-outline' for Visit Request
               break;
-            case 'CheckPayment':
-              iconName = 'cash';
+            case 'Bills':
+              iconName = 'wallet-outline'; // Use 'wallet-outline' for Bills
               break;
             default:
-              iconName = 'information-circle';
+              iconName = 'information-circle-outline'; // Default icon
+              break;
           }
+
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarLabel: ({ focused }) => (
-          <Text style={{ textAlign: 'center', color: focused ? 'blue' : 'gray' }}>
+          <Text
+            style={{
+              textAlign: 'center',
+              color: focused ? '#007AFF' : '#8e8e93', // Color change based on focus
+              fontWeight: focused ? 'bold' : 'normal', // Bold text when focused
+            }}
+          >
             {route.name}
           </Text>
         ),
@@ -74,12 +95,14 @@ function HomeTabs() {
       })}
     >
       <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen name="GenerateQR" component={GenerateQR} />
-      <Tab.Screen name="Guest_log" component={GuestLog} />
-      <Tab.Screen name="CheckPayment" component={CheckPayment} />
+      <Tab.Screen name="My Qr" component={GenerateQR} />
+      <Tab.Screen name="Visit Request" component={GuestLog} />
+      <Tab.Screen name="Bills" component={CheckPayment} />
     </Tab.Navigator>
   );
 }
+
+
 
 const App = () => {
   useEffect(() => {
@@ -119,16 +142,19 @@ const App = () => {
           <Stack.Screen name="Register" component={Register} options={{ headerShown: false }} />
           <Stack.Screen name="Home" component={HomeTabs} options={{ headerShown: false }} />
           <Stack.Screen name="Profile" component={Profile} options={{ title: 'Profile' }} />
+          <Stack.Screen name="ProfileEdit" component={ProfileEdit} options={{ headerShown: false  }} />
           <Stack.Screen name="Create" component={Create} options={{ headerShown: false }} />
           <Stack.Screen name="Announcement" component={Announcement} options={{ title: 'Announcement' }} />
           <Stack.Screen name="Inbox" component={Inbox} options={{ title: 'Inbox' }} />
-          <Stack.Screen name="Guest_list" component={GuestList} options={{ title: 'Visit Logs' }} />
-          <Stack.Screen name="visit_log" component={visit_log} options={{ title: 'Previous Guest' }} />
+          <Stack.Screen name="Guest_list" component={GuestList} options={{ title: 'Today Guest' }} />
+          <Stack.Screen name="a_details" component={a_details} options={{ title: 'Guest Details' }} />
           <Stack.Screen name="Guest" component={Guest} options={{ headerShown: false }} />
           <Stack.Screen name="Maintenance" component={Maintenance} options={{ title: 'Maintenance Request' }} />
           <Stack.Screen name="Maintenance_log" component={MaintenanceLog} options={{ title: 'Maintenance Request Log' }} />
           <Stack.Screen name="Guest_history" component={GuestHistory} options={{ title: 'Guest Visit Log' }} />
-          <Stack.Screen name="GuestAccepted" component={AcceptedGuest} options={{ title: 'Guest Accepted' }} />
+          <Stack.Screen name="AddGuest" component={AddGuest} options={{ title: 'Add Guest' }} />
+          <Stack.Screen name="List_reservation" component={List_reservation} options={{ title: 'Visit History' }} />
+          <Stack.Screen name="Gues tAccepted" component={AcceptedGuest} options={{ title: 'Guest Accepted' }} />
           <Stack.Screen name="DenyGuest" component={DenyGuest} options={{ title: 'Deny Guest' }} />
           <Stack.Screen name="CommunityForum" component={CommunityForum} options={{ title: 'Community Forum' }} />
           <Stack.Screen name="compose_blog" component={compose_blog} options={{ title: 'Compose Blog' }} />
@@ -137,8 +163,12 @@ const App = () => {
           <Stack.Screen name="GuardLogin" component={GuardLogin} options={{ headerShown: false }} />
           <Stack.Screen name="guard_verify_otp" component={guard_verify_otp} options={{ headerShown: false }} />
           <Stack.Screen name="guard_HO_Very" component={guard_HO_Very} options={{ headerShown: false }} />
+          <Stack.Screen name="guard_OTP" component={guard_OTP} options={{ headerShown: false }} />
           <Stack.Screen name="TodayGuest" component={TodayGuest} options={{ title: 'Today Expected Guest' }} />
+          <Stack.Screen name="guard_ho_qr" component={guard_ho_qr} options={{ title: 'Qr Scan' }} />
           <Stack.Screen name="GuestInfo" component={GuestInfo} options={{ title: 'Guest Info' }} />
+          <Stack.Screen name="Bill_log" component={Bill_log} options={{ title: 'Bill Log' }} />
+          <Stack.Screen name="Loading" component={Loading} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </UserProvider>

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 const ProfileScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const getUserData = async () => {
@@ -12,7 +13,7 @@ const ProfileScreen = ({ navigation }) => {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
           const { username } = JSON.parse(userData);
-          const response = await axios.get(`http://172.69.69.115/4Capstone/app/db_connection/getuser.php?username=${username}`);
+          const response = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getuser.php?username=${username}`);
           if (response.data.error) {
             console.error("User not found");
             navigation.navigate('Login');
@@ -25,6 +26,8 @@ const ProfileScreen = ({ navigation }) => {
       } catch (error) {
         console.error("Failed to get user data:", error);
         navigation.navigate('Login');
+      } finally {
+        setLoading(false);
       }
     };
     getUserData();
@@ -40,19 +43,28 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleEditInformation = () => {
-    navigation.navigate('EditProfile'); // Assuming you have an edit profile screen
+    navigation.navigate('ProfileEdit'); // Assuming you have an edit profile screen
   };
 
-  if (!user) {
+  if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
         <Text>Loading...</Text>
       </View>
     );
   }
 
-  const imageUrl = `http://172.69.69.115/4Capstone/stuff/${user.image}`;
-  
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Text>Error loading user data</Text>
+      </View>
+    );
+  }
+
+  const imageUrl = `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${user.ho_pic}`;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -64,7 +76,7 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={styles.infoLabel}>Email:</Text>
         <Text style={styles.infoText}>{user.email}</Text>
         <Text style={styles.infoLabel}>Address:</Text>
-        <Text style={styles.infoText}>{user.hnum + ", Roxaco Landing Subdivision, Nasugbu, Batangas"}</Text>
+        <Text style={styles.infoText}>{user.hnum}, Roxaco Landing Subdivision, Nasugbu, Batangas</Text>
         <Text style={styles.infoLabel}>Contact Number:</Text>
         <Text style={styles.infoText}>{user.con_num}</Text>
       </View>
@@ -86,15 +98,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     padding: 20,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
   header: {
     alignItems: 'center',
     marginBottom: 20,
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   profileImage: {
     width: 150,
     height: 150,
     borderRadius: 75,
     marginBottom: 10,
+    borderWidth: 3,
+    borderColor: '#3498db',
   },
   name: {
     fontSize: 26,
@@ -104,6 +132,14 @@ const styles = StyleSheet.create({
   },
   additionalInfo: {
     marginBottom: 30,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   infoLabel: {
     fontSize: 16,

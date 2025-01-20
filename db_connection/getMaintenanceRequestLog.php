@@ -15,7 +15,7 @@ if (!$CN) {
 }
 
 // Modify the query to retrieve maintenance requests by HO_name
-$query = "SELECT `request_id`, `title`, `content`, `created_at`, `HO_username`, `status` FROM `maintenance_request` WHERE `HO_username` = ? ORDER BY `request_id` DESC";
+$query = "SELECT `request_id`, `title`, `content`, `created_at`, `HO_username`, `status` , `image_url` FROM `maintenance_request` WHERE `HO_username` = ? ORDER BY `request_id` DESC";
 
 // Prepare the SQL statement
 $stmt = mysqli_prepare($CN, $query);

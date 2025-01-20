@@ -1,22 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // Ensure you have this library installed
-import Sidebar from './Sidebar'; // Ensure you have a Sidebar component imported
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import axios from 'axios'; 
+import Sidebar from './Sidebar'; 
 
 const HomeScreen = ({ navigation }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState({});
+  const [totalVisits, setTotalVisits] = useState(0);
+  const [totalBills, setTotalBills] = useState(0);
+  const [billStatus, setBillStatus] = useState('');
+  const [daysOverdue, setDaysOverdue] = useState(0);
   const [isSidebarVisible, setSidebarVisible] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState('All');
-  const [monthlyBills, setMonthlyBills] = useState([]);
-  const [visitLogs, setVisitLogs] = useState([]);
 
   useEffect(() => {
     const getUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem('user');
         if (userData) {
-          setUser(JSON.parse(userData));
+          const { username } = JSON.parse(userData);
+          const response = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getuser.php?username=${username}`);
+          setUser(response.data);
+
+          // Fetch total visits
+          const visitResponse = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getVisitCount.php?username=${username}`);
+          setTotalVisits(visitResponse.data.visit_count || 0);
+
+          // Fetch total bills, bill status, and days overdue
+          const billResponse = await axios.get(`https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/getCurrentBill.php?username=${username}`);
+          if (billResponse.data.error) {
+            setTotalBills(billResponse.data.total_amount || 0);
+          } else {
+            setTotalBills(billResponse.data.amount);
+            setBillStatus(billResponse.data.status);
+            // Ensure daysOverdue is a whole number
+            setDaysOverdue(Math.floor(billResponse.data.days_overdue)); // Use Math.floor to make it a whole number
+          }
+
         } else {
           navigation.navigate('Login');
         }
@@ -25,43 +45,23 @@ const HomeScreen = ({ navigation }) => {
         navigation.navigate('Login');
       }
     };
-    getUserData();
-  }, [navigation]);
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('user');
-      navigation.navigate('Login');
-    } catch (error) {
-      console.error("Failed to remove user data:", error);
-    }
-  };
+    getUserData();
+
+    const intervalId = setInterval(() => {
+      getUserData();
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [navigation]);
 
   const toggleSidebar = () => {
     setSidebarVisible(!isSidebarVisible);
   };
 
-  const handleFilterChange = (filter) => {
-    setSelectedFilter(filter);
-    // Load data based on the selected filter
-    // For example, update monthlyBills and visitLogs here
-  };
-
-  // Example data for demonstration; replace with real data as needed
-  const exampleMonthlyBills = [
-    { title: 'Electricity', amount: 'Php 1500', info: '+5% from last month' },
-    { title: 'Water', amount: 'Php 500', info: '-10% from last month' },
-    { title: 'Internet', amount: 'Php 2000', info: '+2% from last month' },
-  ];
-
-  const exampleVisitLogs = [
-    { date: '2024-06-01', visitor: 'Mang Kanor', action: 'Naningil ng Utang' },
-    { date: '2024-06-10', visitor: 'Janet', action: 'Naghahabol para sa anak' },
-    { date: '2024-06-15', visitor: 'Manong Delivery Driver', action: 'Nagdeliver ng' },
-  ];
+  const imageUrl = user && user.ho_pic ? `https://darkorchid-caribou-718106.hostingersite.com/app/db_connection/${user.ho_pic}` : '';
 
   return (
-    
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={toggleSidebar}>
@@ -69,102 +69,43 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={styles.title}>Home</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Image source={user ? { uri: user.image } : null} style={styles.userImage} />
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.profileImage} />
+          ) : (
+            <Icon name="person" size={40} color="#fff" /> // Placeholder icon if no image
+          )}
         </TouchableOpacity>
       </View>
 
       {isSidebarVisible && <Sidebar onClose={toggleSidebar} navigation={navigation} />}
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* User Profile Container */}
-        {user && (
-          <View style={styles.profileContainer}>
-            <Image source={{ uri: user.image }} style={styles.profileImage} />
-            <Text style={styles.profileName}>{user.name}</Text>
+        {billStatus === 'Overdue' && (
+          <View style={styles.overdueBanner}>
+            <Text style={styles.overdueText}>Your bill is overdue by {daysOverdue} days. Please settle it as soon as possible.</Text>
           </View>
         )}
-<View style={styles.container}>
-      {user ? (
-        <View>
-          <Text>Welcome, {user.username}!</Text>
-        </View>
-      ) : (
-        <Text>Loading...</Text>
-      )}
-    </View>
-        {/* Dashboard Section */}
+
         <View style={styles.dashboard}>
           <Text style={styles.dashboardTitle}>Dashboard</Text>
           <View style={styles.dashboardStats}>
-            <View style={styles.dashboardCard}>
+            <View style={[styles.dashboardCard, billStatus === 'Overdue' ? styles.overdueBorder : {}]}>
               <Icon name="account-balance-wallet" size={24} color="#007bff" />
               <View style={styles.dashboardCardContent}>
-                <Text style={styles.dashboardCardTitle}>Total Bills</Text>
-                <Text style={styles.dashboardCardValue}>Php 4000</Text>
+                <Text style={styles.dashboardCardTitle}>Maintenance Due</Text>
+                <Text style={styles.dashboardCardValue}>₱ {totalBills}</Text> 
               </View>
             </View>
             <View style={styles.dashboardCard}>
               <Icon name="people" size={24} color="#007bff" />
               <View style={styles.dashboardCardContent}>
-                <Text style={styles.dashboardCardTitle}>Visitors</Text>
-                <Text style={styles.dashboardCardValue}>3</Text>
+                <Text style={styles.dashboardCardTitle}>Today's Visit Requests</Text>
+                <Text style={styles.dashboardCardValue}>{totalVisits}</Text> 
               </View>
             </View>
           </View>
         </View>
-
-        {/* Filter Section */}
-        <View style={styles.filters}>
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'All' && styles.activeFilter]}
-            onPress={() => handleFilterChange('All')}
-          >
-            <Icon name="view-list" size={20} color="#fff" />
-            <Text style={styles.filterButtonText}>All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'Monthly Bills' && styles.activeFilter]}
-            onPress={() => handleFilterChange('Monthly Bills')}
-          >
-            <Icon name="receipt" size={20} color="#fff" />
-            <Text style={styles.filterButtonText}>Monthly Bills</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, selectedFilter === 'Visit Logs' && styles.activeFilter]}
-            onPress={() => handleFilterChange('Visit Logs')}
-          >
-            <Icon name="history" size={20} color="#fff" />
-            <Text style={styles.filterButtonText}>Visit Logs</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Monthly Bills Section */}
-        {(selectedFilter === 'All' || selectedFilter === 'Monthly Bills') && (
-          <View style={styles.stats}>
-            {exampleMonthlyBills.map((bill, index) => (
-              <View style={styles.card} key={index}>
-                <Text style={styles.cardTitle}>{bill.title}</Text>
-                <Text style={styles.cardValue}>{bill.amount}</Text>
-                <Text style={styles.cardInfo}>{bill.info}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Visit Logs Section */}
-        {(selectedFilter === 'All' || selectedFilter === 'Visit Logs') && (
-          <View style={styles.chart}>
-            {exampleVisitLogs.map((log, index) => (
-              <View style={styles.chartItem} key={index}>
-                <Text style={styles.chartLabel}>{log.date}</Text>
-                <Text style={styles.chartData}>{log.visitor}</Text>
-                <Text style={styles.chartInfo}>{log.action}</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
-
     </View>
   );
 };
@@ -179,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgb(10, 80, 57)',
     marginTop: 30,
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
@@ -190,7 +131,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  userImage: {
+  profileImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -200,49 +141,22 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  profileContainer: {
-    alignItems: 'center',
+  overdueBanner: {
+    backgroundColor: 'red',
+    padding: 15,
+    borderRadius: 10,
     marginBottom: 20,
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  filters: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#007bff',
-    borderRadius: 5,
-  },
-  filterButtonText: {
-    marginLeft: 5,
+  overdueText: {
     color: '#fff',
     fontWeight: 'bold',
-  },
-  activeFilter: {
-    backgroundColor: '#0056b3',
-  },
-  dashboard: {
-    marginBottom: 20,
+    textAlign: 'center',
   },
   dashboardTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#007bff',
+    color: 'rgb(10, 80, 57)',
   },
   dashboardStats: {
     flexDirection: 'row',
@@ -261,6 +175,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     width: '48%',
   },
+  overdueBorder: {
+    borderColor: 'red',
+    borderWidth: 2,
+  },
   dashboardCardContent: {
     marginLeft: 10,
   },
@@ -271,71 +189,7 @@ const styles = StyleSheet.create({
   },
   dashboardCardValue: {
     fontSize: 18,
-    color: '#007bff',
-  },
-  stats: {
-    marginBottom: 20,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  cardValue: {
-    fontSize: 16,
-    color: '#007bff',
-  },
-  cardInfo: {
-    fontSize: 14,
-    color: '#666',
-  },
-  chart: {
-    marginBottom: 20,
-  },
-  chartItem: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  chartLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  chartData: {
-    fontSize: 14,
-    color: '#007bff',
-  },
-  chartInfo: {
-    fontSize: 12,
-    color: '#666',
-  },
-  logoutButton: {
-    backgroundColor: '#dc3545',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: 'rgb(10, 80, 57)',
   },
 });
 

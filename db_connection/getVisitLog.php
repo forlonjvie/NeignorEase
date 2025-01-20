@@ -1,20 +1,29 @@
 <?php
+// Connect to the database
 $CN = mysqli_connect("localhost", "root", "", "admin_db");
 
 if (!$CN) {
     die("Connection failed: " . mysqli_connect_error());
 }
 
+// Set the timezone to Philippine Time
+date_default_timezone_set('Asia/Manila');
+
 // Get the username from the query parameter
 $username = $_GET['username']; 
 
-// Updated query to only include rows where status is 'CONFIRMED' or 'DENY'
-$query = "SELECT `HO_name`, `HO_housenum`, `Guest_name`, `Guest_email`, `message`, `guest_contact`, `guest_add` , `relation`
-          FROM `visits` 
-          WHERE `HO_name` = ? AND `status` IN ('CONFIRMED', 'DENY')";
+// Get the current date in the format 'YYYY-MM-DD'
+$currentDate = date('Y-m-d');
+
+// Updated query to only include confirmed guests for the current day
+$query = "SELECT id, HO_name, Guest_lname, Guest_fname, Guest_mname, Guest_afname, 
+                 Guest_photo, Guest_email, guest_contact, guest_add, HO_housenum, 
+                 visit_date, Guest_num, relation, status
+          FROM visits 
+          WHERE HO_name = ? AND status = 'CONFIRMED' AND DATE(visit_date) = ?";
 
 $stmt = $CN->prepare($query);
-$stmt->bind_param("s", $username);
+$stmt->bind_param("ss", $username, $currentDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -26,7 +35,7 @@ if ($result->num_rows > 0) {
     }
     echo json_encode($guests);
 } else {
-    echo json_encode(["error" => "No guests found"]);
+    echo json_encode(["error" => "No confirmed guests found for today"]);
 }
 
 // Close the statement and connection
