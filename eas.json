@@ -21,7 +21,7 @@
       "android": {
         "buildType": "apk",
         "releaseChannel": "production",
-        "image": "ubuntu-22.04-android-31"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
       }
     },
     "release": { 
