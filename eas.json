@@ -20,7 +20,8 @@
     "production": {
       "android": {
         "buildType": "apk",
-        "releaseChannel": "production"
+        "releaseChannel": "production",
+        "image": "ubuntu-22.04-android-31"
       }
     },
     "release": { 
