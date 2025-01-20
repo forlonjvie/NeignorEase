@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "NeighborEaseApp",
-    "slug": "neighboreaseapp",
+    "slug": "NeighborEaseApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -33,7 +33,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "5a8009b2-1f07-45f8-936e-881f313bbc09"
+        "projectId": "fcfd4f9c-b66e-4140-8026-4a2ed4ad02b2"
       }
     }
   }
