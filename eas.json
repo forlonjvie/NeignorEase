@@ -15,10 +15,7 @@
       "autoIncrement": true,
       "android": {
         "buildType": "apk",
-        "releaseChannel": "production",
-        "env": {
-          "JAVA_HOME": "C:/Program Files/Java/jdk-23"
-        }
+        "releaseChannel": "production"
       }
     }
   },
